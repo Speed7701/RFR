@@ -275,11 +275,12 @@ struct SimpleBarChart: View {
     let workouts: [WorkoutHistory]
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            let maxDistance = workouts.map { $0.totalDistance }.max() ?? 1
-            let maxMiles = maxDistance / 1609.34
-            
-            ForEach(Array(workouts.prefix(10).enumerated()), id: \.element.id) { index, workout in
+        // Precompute values outside the view builder to avoid non-View statements inside VStack
+        let maxDistance = max(workouts.map { $0.totalDistance }.max() ?? 0, 1)
+        let items = Array(workouts.prefix(10).enumerated())
+        
+        return VStack(alignment: .leading, spacing: 8) {
+            ForEach(items, id: \.element.id) { index, workout in
                 HStack(spacing: 8) {
                     Text("#\(index + 1)")
                         .font(.caption)

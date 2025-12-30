@@ -57,8 +57,7 @@ class WorkoutManager: ObservableObject {
     
     func startWorkout(_ workout: Workout) async {
         print("=== WorkoutManager.startWorkout called ===")
-        print("Workout: \(workout.name)")
-        print("Thread: \(Thread.isMainThread ? "Main" : "Background")")
+        print("Actor: MainActor")
         
         // Debug: Print actual stored values
         print("DEBUG: Stored workout values:")
@@ -158,7 +157,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func startIntervalTimer(duration: TimeInterval, completion: @escaping () -> Void) {
-        guard var session = session else { 
+        guard let session = session else { 
             print("ERROR: Cannot start timer - no session")
             return 
         }
@@ -205,58 +204,57 @@ class WorkoutManager: ObservableObject {
             // Timer callback executes on main thread (since scheduled on main RunLoop)
             // Since WorkoutManager is @MainActor, we can access properties directly
             // Use MainActor.assumeIsolated to satisfy compiler while maintaining performance
-            MainActor.assumeIsolated {
-                // Ensure we're still active before updating
-                guard self.isActive else {
-                    print("WARNING: Timer fired but workout is not active, invalidating timer")
-                    self.timer?.invalidate()
-                    self.timer = nil
-                    return
-                }
-                
-                // Capture values we need
-                let currentElapsed = self.elapsedTime + 1
-                let currentTargetDuration = targetDuration
-                let currentCompletionHandler = completionHandler
-                
-                // Update elapsed time
-                self.elapsedTime = currentElapsed
-                
-                // Trigger countdown exactly 10 seconds before interval ends
-                // Check if we're at exactly 10 seconds remaining (remaining time = 10 seconds)
-                // For a 60-second interval, this should trigger at 50 seconds elapsed (60 - 10 = 50)
-                let remainingTime = currentTargetDuration - currentElapsed
-                // Use <= 10.0 to catch it even if timing is slightly off, but >= 9.0 to avoid triggering too early
-                if remainingTime <= 10.0 && remainingTime >= 9.0 && !self.countdownTriggered {
-                    self.countdownTriggered = true
-                    print("Triggering 10-second countdown. Elapsed: \(Int(currentElapsed))s, Remaining: \(Int(remainingTime))s, Total: \(Int(currentTargetDuration))s")
-                    self.startCountdown()
-                }
-                
-                // Debug: print every 5 seconds with interval type info
-                if Int(currentElapsed) % 5 == 0 {
-                    let currentType = self.session?.state.currentIntervalType ?? .warmUp
-                    let intervalNum = (self.session?.state.currentIntervalIndex ?? 0) + 1
-                    print("Timer tick [\(currentType)]: \(Int(currentElapsed))s / \(Int(currentTargetDuration))s (Interval #\(intervalNum))")
-                }
-                
-                // Update session state
-                if let session = self.session {
-                    session.state.elapsedTimeInCurrentInterval = currentElapsed
-                    session.state.intervalRemainingTime = max(0, currentTargetDuration - currentElapsed)
-                    session.state.totalElapsedTime += 1
-                    self.session = session
-                } else {
-                    print("WARNING: Timer fired but session is nil")
-                }
-                
-                // Check if interval is complete
-                if currentElapsed >= currentTargetDuration {
-                    print("Interval timer completed: \(currentElapsed) >= \(currentTargetDuration)")
-                    self.timer?.invalidate()
-                    self.timer = nil
-                    currentCompletionHandler()
-                }
+
+            // Ensure we're still active before updating
+            guard self.isActive else {
+                print("WARNING: Timer fired but workout is not active, invalidating timer")
+                self.timer?.invalidate()
+                self.timer = nil
+                return
+            }
+            
+            // Capture values we need
+            let currentElapsed = self.elapsedTime + 1
+            let currentTargetDuration = targetDuration
+            let currentCompletionHandler = completionHandler
+            
+            // Update elapsed time
+            self.elapsedTime = currentElapsed
+            
+            // Trigger countdown exactly 10 seconds before interval ends
+            // Check if we're at exactly 10 seconds remaining (remaining time = 10 seconds)
+            // For a 60-second interval, this should trigger at 50 seconds elapsed (60 - 10 = 50)
+            let remainingTime = currentTargetDuration - currentElapsed
+            // Use <= 10.0 to catch it even if timing is slightly off, but >= 9.0 to avoid triggering too early
+            if remainingTime <= 10.0 && remainingTime >= 9.0 && !self.countdownTriggered {
+                self.countdownTriggered = true
+                print("Triggering 10-second countdown. Elapsed: \(Int(currentElapsed))s, Remaining: \(Int(remainingTime))s, Total: \(Int(currentTargetDuration))s")
+                self.startCountdown()
+            }
+            
+            // Debug: print every 5 seconds with interval type info
+            if Int(currentElapsed) % 5 == 0 {
+                let currentType = self.session?.state.currentIntervalType ?? .warmUp
+                let intervalNum = (self.session?.state.currentIntervalIndex ?? 0) + 1
+                print("Timer tick [\(currentType)]: \(Int(currentElapsed))s / \(Int(currentTargetDuration))s (Interval #\(intervalNum))")
+            }
+            
+            // Update session state
+            if let session = self.session {
+                session.state.elapsedTimeInCurrentInterval = currentElapsed
+                session.state.intervalRemainingTime = max(0, currentTargetDuration - currentElapsed)
+                session.state.totalElapsedTime += 1
+                self.session = session
+            } else {
+                print("WARNING: Timer fired but session is nil")
+            }
+            
+            // Check if interval is complete
+            if currentElapsed >= currentTargetDuration {
+                print("Interval timer completed: \(currentElapsed) >= \(currentTargetDuration)")
+                self.timer?.invalidate()
+                self.timer = nil
+                currentCompletionHandler()
             }
         }
         
