@@ -9,7 +9,6 @@ import SwiftUI
 import SwiftData
 
 struct WorkoutListView: View {
-    @EnvironmentObject private var workoutPresentationManager: WorkoutPresentationManager
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Workout.createdAt, order: .reverse) private var workouts: [Workout]
     @State private var showingCreateWorkout = false
@@ -87,7 +86,6 @@ struct WorkoutDetailView: View {
     let workout: Workout
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var workoutPresentationManager: WorkoutPresentationManager
     @State private var showingStartConfirmation = false
     @State private var showWorkout = false
     @State private var selectedMusicProvider: MusicProvider = .none
@@ -153,12 +151,14 @@ struct WorkoutDetailView: View {
                     selectedMusicProvider = provider
                     showingStartConfirmation = false
                     // Small delay to ensure sheet dismisses
-                    dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        workoutPresentationManager.presentWorkout(workout, musicProvider: provider)
+                        showWorkout = true
                     }
                 }
             )
+        }
+        .fullScreenCover(isPresented: $showWorkout) {
+            LiveWorkoutView(workout: workout, musicProvider: selectedMusicProvider)
         }
         .alert("Delete Workout", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
@@ -211,6 +211,5 @@ struct DetailRow: View {
 #Preview {
     WorkoutListView()
         .modelContainer(for: Workout.self, inMemory: true)
-        .environmentObject(WorkoutPresentationManager.preview)
 }
 
