@@ -10,6 +10,7 @@ import SwiftData
 
 struct WorkoutListView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var workoutPresentationManager: WorkoutPresentationManager
     @Query(sort: \Workout.createdAt, order: .reverse) private var workouts: [Workout]
     @State private var showingCreateWorkout = false
     
@@ -86,8 +87,8 @@ struct WorkoutDetailView: View {
     let workout: Workout
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var workoutPresentationManager: WorkoutPresentationManager
     @State private var showingStartConfirmation = false
-    @State private var showWorkout = false
     @State private var selectedMusicProvider: MusicProvider = .none
     @State private var showingDeleteConfirmation = false
     
@@ -150,18 +151,13 @@ struct WorkoutDetailView: View {
                 onStart: { provider in
                     selectedMusicProvider = provider
                     showingStartConfirmation = false
-                    // Small delay to ensure sheet dismisses
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showWorkout = true
-                    }
+                    // Use the presentation manager
+                    workoutPresentationManager.presentWorkout(workout, musicProvider: provider)
+                    // Dismiss this view
+                    dismiss()
                 }
             )
         }
-        // ✅ NEW (fixed):
-.fullScreenCover(isPresented: $showWorkout) {
-    LiveWorkoutView(workout: workout, musicProvider: selectedMusicProvider)
-        .environment(\.modelContext, modelContext)  // CRITICAL FIX #1
-}
 
         .alert("Delete Workout", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
