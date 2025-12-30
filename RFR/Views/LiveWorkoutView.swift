@@ -24,76 +24,99 @@ struct LiveWorkoutView: View {
     @State private var showPausedMessage = false
     
     var body: some View {
-        ZStack {
-            // Black background
-            Color.black
-                .ignoresSafeArea()
-            
-            if isLoading {
-                ProgressView("Starting workout...")
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .foregroundColor(.white)
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            isLoading = false
-                        }
-                    }
-            } else if let session = workoutManager.session {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Current Interval Display
-                        IntervalProgressView(session: session)
-                        
-                        // Interval Labels and Large Countdown Timer
-                        VStack(spacing: 8) {
-                            // Run and Walk interval labels
-                            HStack {
-                                Text("Run Interval \(session.state.currentIntervalIndex + 1)")
-                                    .font(.headline)
-                                    .foregroundColor(session.state.currentIntervalType == .running ? .white : .blue.opacity(0.6))
-                                    .bold(session.state.currentIntervalType == .running)
-                                Spacer()
-                                Text("Walk Interval \(session.state.currentIntervalIndex + 1)")
-                                    .font(.headline)
-                                    .foregroundColor(session.state.currentIntervalType == .walking ? .white : .orange.opacity(0.6))
-                                    .bold(session.state.currentIntervalType == .walking)
-                            }
-                            .padding(.horizontal)
-                            
-                            TimerView(session: session)
-                        }
-                        
-                        // Stats Grid
-                        StatsView(session: session)
-                        
-                        // Overall Progress
-                        OverallProgressView(session: session)
-                        
-                        // Controls
-                        WorkoutControls(
-                            showStopConfirmation: $showStopConfirmation,
-                            showPausedMessage: $showPausedMessage
-                        )
-                    }
-                    .padding()
-                }
-            } else {
-                VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 60))
-                        .foregroundColor(.red)
-                    Text("Failed to start workout")
-                        .font(.title)
+        NavigationStack {
+            ZStack {
+                // Black background
+                Color.black
+                    .ignoresSafeArea()
+                
+                if isLoading {
+                    ProgressView("Starting workout...")
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         .foregroundColor(.white)
-                    Button("Dismiss") {
-                        dismiss()
-                // Navigate back to main page
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    dismiss()
-                }
-                    .buttonStyle(.borderedProminent)
+                        .onAppear {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                isLoading = false
+                            }
+                        }
+                } else if let session = workoutManager.session {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Current Interval Display
+                            IntervalProgressView(session: session)
+                            
+                            // Interval Labels and Large Countdown Timer
+                            VStack(spacing: 8) {
+                                // Run and Walk interval labels
+                                // Both show remaining intervals (starts at max, decreases by 1 for each completed interval pair)
+                                HStack {
+                                    Text("Run Interval \(session.state.remainingRunIntervals)")
+                                        .font(.headline)
+                                        .foregroundColor(session.state.currentIntervalType == .running ? .white : .blue.opacity(0.6))
+                                        .bold(session.state.currentIntervalType == .running)
+                                    Spacer()
+                                    Text("Walk Interval \(session.state.remainingWalkIntervals)")
+                                        .font(.headline)
+                                        .foregroundColor(session.state.currentIntervalType == .walking ? .white : .orange.opacity(0.6))
+                                        .bold(session.state.currentIntervalType == .walking)
+                                }
+                                .padding(.horizontal)
+                                
+                                TimerView(session: session)
+                            }
+                            
+                            // Stats Grid
+                            StatsView(session: session)
+                            
+                            // Overall Progress
+                            OverallProgressView(session: session)
+                            
+                            // Controls
+                            WorkoutControls(
+                                showStopConfirmation: $showStopConfirmation,
+                                showPausedMessage: $showPausedMessage
+                            )
+                        }
+                        .padding()
+                    }
+                } else {
+                    VStack(spacing: 20) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 60))
+                            .foregroundColor(.red)
+                        Text("Failed to start workout")
+                            .font(.title)
+                            .foregroundColor(.white)
+                        Button("Dismiss") {
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        stopWorkoutAndDismiss()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .foregroundColor(.white)
+                    }
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 50)
+                    .onEnded { value in
+                        // Swipe down gesture
+                        if value.translation.height > 0 && abs(value.translation.height) > abs(value.translation.width) {
+                            stopWorkoutAndDismiss()
+                        }
+                    }
+            )
         }
         .onAppear {
             Task { @MainActor in
@@ -125,6 +148,14 @@ struct LiveWorkoutView: View {
             Text(errorMessage ?? "Unknown error")
         }
     }
+    
+    private func stopWorkoutAndDismiss() {
+        workoutManager.stopWorkout()
+        workoutPresentationManager.dismissWorkout()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            dismiss()
+        }
+    }
 }
 
 // MARK: - Interval Progress View
@@ -140,13 +171,13 @@ struct IntervalProgressView: View {
             
             // Interval progress bar
             ProgressView(
-                value: Double\(session.state.currentIntervalIndex + 1),
+                value: Double(session.state.currentIntervalIndex + 1),
                 total: Double(session.workout.numberOfIntervals)
             )
             .progressViewStyle(LinearProgressViewStyle(tint: .blue))
             .frame(height: 8)
             
-            Text("Interval \\(session.state.currentIntervalIndex + 1) of \(session.workout.numberOfIntervals)")
+            Text("Interval \(session.state.currentIntervalIndex + 1) of \(session.workout.numberOfIntervals)")
                 .font(.caption)
                 .foregroundColor(.gray)
         }

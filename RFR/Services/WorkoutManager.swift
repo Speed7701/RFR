@@ -158,7 +158,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func startIntervalTimer(duration: TimeInterval, completion: @escaping () -> Void) {
-        guard let session = session else { 
+        guard var session = session else { 
             print("ERROR: Cannot start timer - no session")
             return 
         }
@@ -273,7 +273,7 @@ class WorkoutManager: ObservableObject {
             return
         }
         
-        guard let session = session else {
+        guard var session = session else {
             print("WARNING: Attempted to start countdown but session is nil")
             return
         }
@@ -289,7 +289,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func transitionToIntervals() {
-        guard let session = session else { return }
+        guard var session = session else { return }
         
         // Handle interval transitions
         if session.state.currentIntervalType == .warmUp {
@@ -316,12 +316,15 @@ class WorkoutManager: ObservableObject {
             // currentIntervalIndex tracks which interval we're on (0-indexed)
             // After completing interval 0 (run+walk), we move to interval 1, etc.
             // We've completed all intervals when currentIntervalIndex >= numberOfIntervals
+                        // Decrement remaining walk intervals when a walk completes
+            print("Walk interval complete. Remaining walk intervals: \(session.state.remainingWalkIntervals) -> \(session.state.remainingWalkIntervals - 1)")
+            session.state.remainingWalkIntervals = max(0, session.state.remainingWalkIntervals - 1)
+            
             if session.state.currentIntervalIndex + 1 < session.workout.numberOfIntervals {
                 // Start next interval (run phase)
                 let nextIntervalIndex = session.state.currentIntervalIndex + 1
                 print("Transitioning to run interval #\(nextIntervalIndex + 1)")
                 session.state.currentIntervalIndex = nextIntervalIndex
-                session.state.remainingIntervals -= 1
                 session.state.currentIntervalType = .running
                 intervalStartDistance = locationService.totalDistance
             voiceService.announceIntervalStart(type: .running)
@@ -341,7 +344,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func completeRunningInterval() {
-        guard let session = session else { return }
+        guard var session = session else { return }
         
         // Announce interval completion with stats
         let intervalDistance = locationService.totalDistance - intervalStartDistance
@@ -352,9 +355,6 @@ class WorkoutManager: ObservableObject {
             pace: intervalPace
         )
         
-        // Transition to walking
-        let currentIntervalNum = session.state.currentIntervalIndex + 1
-        print("Run interval #\(currentIntervalNum) complete. Transitioning to walk interval")
         session.state.currentIntervalType = .walking
         intervalStartDistance = locationService.totalDistance
         voiceService.announceIntervalStart(type: .walking)
@@ -369,7 +369,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func transitionToCoolDown() {
-        guard let session = session else { return }
+        guard var session = session else { return }
         
         print("Transitioning to cool-down phase")
         session.state.currentIntervalType = .coolDown
@@ -388,7 +388,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func completeWorkout() {
-        guard let session = session else { return }
+        guard var session = session else { return }
         
         session.endTime = Date()
         session.state.isActive = false
@@ -467,7 +467,7 @@ class WorkoutManager: ObservableObject {
     }
     
     private func getRemainingTimeInCurrentInterval() -> TimeInterval {
-        guard let session = session,
+        guard var session = session,
               let intervalStartTime = session.state.intervalStartTime else {
             return 0
         }

@@ -19,11 +19,12 @@ struct WorkoutState {
     var currentPace: Double? // seconds per meter (nil if not enough data)
     var intervalDistance: Double = 0 // meters covered in current interval
     var intervalStartTime: Date?
-    var remainingIntervals: Int = 0
+    var intervalStartTime: Date?
+    var remainingIntervals: Int = 0 // Deprecated - use remainingRunIntervals and remainingWalkIntervals
+    var remainingRunIntervals: Int = 0
+    var remainingWalkIntervals: Int = 0
     
     // Location tracking
-    var locations: [CLLocation] = []
-    var lastLocation: CLLocation?
     
     mutating func reset() {
         isActive = false
@@ -38,6 +39,8 @@ struct WorkoutState {
         intervalDistance = 0
         intervalStartTime = nil
         remainingIntervals = 0
+        remainingRunIntervals = 0
+        remainingWalkIntervals = 0
         locations = []
         lastLocation = nil
     }

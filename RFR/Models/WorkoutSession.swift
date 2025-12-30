@@ -18,6 +18,8 @@ final class WorkoutSession: ObservableObject {
         self.workout = workout
         self.state = WorkoutState()
         self.state.remainingIntervals = workout.numberOfIntervals
+        self.state.remainingRunIntervals = workout.numberOfIntervals
+        self.state.remainingWalkIntervals = workout.numberOfIntervals
     }
 }
 
